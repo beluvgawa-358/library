@@ -693,7 +693,7 @@ local Library do
     Library.Holder = Instances:Create("ScreenGui", {
         Parent = gethui(),
         Name = "\0",
-        ZIndexBehavior = Enum.ZIndexBehavior.Global,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder = 2,
         ResetOnSpawn = false
     })
@@ -701,7 +701,7 @@ local Library do
     Library.UnusedHolder = Instances:Create("ScreenGui", {
         Parent = gethui(),
         Name = "\0",
-        ZIndexBehavior = Enum.ZIndexBehavior.Global,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         Enabled = false,
         ResetOnSpawn = false
     })
@@ -714,6 +714,7 @@ local Library do
         BorderColor3 = FromRGB(0, 0, 0),
         BorderSizePixel = 0,
         AutomaticSize = Enum.AutomaticSize.X,
+        ZIndex = 1000,
         BackgroundColor3 = FromRGB(255, 255, 255)
     })
     
@@ -1024,6 +1025,7 @@ local Library do
                     BorderColor3 = FromRGB(0, 0, 0),
                     Size = UDim2New(0, 180, 0, 0),
                     BorderSizePixel = 0,
+                    ZIndex = 500,
                     BackgroundColor3 = FromRGB(13, 15, 18)
                 })  Items["ColorpickerWindow"]:AddToTheme({BackgroundColor3 = "Background"})
                 
@@ -1303,7 +1305,7 @@ local Library do
                         continue 
                     end
 
-                    if not Value.ClassName:find("UI") then 
+                    if not Value.ClassName:find("UI") and Value ~= Items["ColorpickerWindow"].Instance then 
                         Value.ZIndex = (Colorpicker.IsOpen and Data.Section.IsSettings and 9) or (Colorpicker.IsOpen and not Data.Section.IsSettings and 3) or 1
                     end
 
@@ -1465,6 +1467,7 @@ local Library do
                     BorderColor3 = FromRGB(0, 0, 0),
                     Size = UDim2New(0, 67, 0, 0),
                     BorderSizePixel = 0,
+                    ZIndex = 500,
                     BackgroundColor3 = FromRGB(13, 15, 18)
                 })  Items["KeybindWindow"]:AddToTheme({BackgroundColor3 = "Background"})
                 
@@ -1613,7 +1616,7 @@ local Library do
                         continue 
                     end
 
-                    if not Value.ClassName:find("UI") then 
+                    if not Value.ClassName:find("UI") and Value ~= Items["KeybindWindow"].Instance then 
                         Value.ZIndex = Keybind.IsOpen and 4 or 1
                     end
 
@@ -2455,7 +2458,7 @@ local Library do
                         BorderSizePixel = 0,
                         Position = UDim2New(0.8949604630470276, 0, 0.2945185601711273, 0),
                         Size = UDim2New(0, 325, 0, 159),
-                        ZIndex = 2,
+                        ZIndex = 500,
                         AutomaticSize = Enum.AutomaticSize.Y,
                         BackgroundColor3 = FromRGB(21, 21, 24)
                     }) SettingsItems["Settings"]:AddToTheme({BackgroundColor3 = "Background"})
@@ -2610,7 +2613,7 @@ local Library do
                                 continue 
                             end
         
-                            if not Value.ClassName:find("UI") then 
+                            if not Value.ClassName:find("UI") and Value ~= SettingsItems["Settings"].Instance then 
                                 Value.ZIndex = Settings.IsOpen and 7 or 1
                                 SettingsItems["Text"].Instance.ZIndex = 8
                             end
@@ -4218,6 +4221,7 @@ local Library do
                     Size = UDim2New(0, Items["RealDropdown"].Instance.AbsoluteSize.X, 0, 127),
                     BorderSizePixel = 0,
                     TextSize = 14,
+                    ZIndex = 500,
                     BackgroundColor3 = FromRGB(13, 15, 18)
                 })  Items["OptionHolder"]:AddToTheme({BackgroundColor3 = "Background"})
                 
@@ -4343,7 +4347,7 @@ local Library do
                         continue 
                     end
 
-                    if not Value.ClassName:find("UI") then 
+                    if not Value.ClassName:find("UI") and Value ~= Items["OptionHolder"].Instance then 
                         Value.ZIndex = Dropdown.IsOpen and 3 or 1
                     end
 
