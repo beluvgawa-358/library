@@ -2940,8 +2940,7 @@ local Library do
                     PaddingTop = UDimNew(0, 6),
                     PaddingBottom = UDimNew(0, 6),
                     PaddingRight = UDimNew(0, 6),
-                    PaddingLeft = UDimNew(0, 6),
-                    ZIndex = 7
+					PaddingLeft = UDimNew(0, 6)
                 })
 
                 Instances:Create("UIListLayout", {
@@ -2950,8 +2949,7 @@ local Library do
                     VerticalAlignment = Enum.VerticalAlignment.Center,
                     FillDirection = Enum.FillDirection.Horizontal,
                     Padding = UDimNew(0, 6),
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    ZIndex = 7
+                    SortOrder = Enum.SortOrder.LayoutOrder
                 })
 
                 Items["CloseButton"] = Instances:Create("TextButton", {
