@@ -345,7 +345,9 @@ local Library do
             setmetatable(NewItem, Instances)
 
             for Property, Value in NewItem.Properties do
-                NewItem.Instance[Property] = Value
+                pcall(function()
+                    NewItem.Instance[Property] = Value
+                end)
             end
 
             return NewItem
@@ -2940,7 +2942,7 @@ local Library do
                     PaddingTop = UDimNew(0, 6),
                     PaddingBottom = UDimNew(0, 6),
                     PaddingRight = UDimNew(0, 6),
-					PaddingLeft = UDimNew(0, 6)
+                    PaddingLeft = UDimNew(0, 6)
                 })
 
                 Instances:Create("UIListLayout", {
