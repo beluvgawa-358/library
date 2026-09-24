@@ -701,10 +701,16 @@ local skinDropdownLabel = create("TextLabel", {
     Size = UDim2New(1, -40, 1, 0),
 })
 
+local chevronId = "6031094678"
+if Library and Library.GetIcon then
+    local ok, id = pcall(function() return Library:GetIcon("chevron-down") end)
+    if ok and id then chevronId = tostring(id) end
+end
+
 create("ImageLabel", {
     Parent = skinDropdownBtn,
     Name = "\0",
-    Image = "rbxassetid://" .. ((Library and Library.GetIcon and Library:GetIcon("chevron-down")) or "6031094678"),
+    Image = "rbxassetid://" .. chevronId,
     ImageColor3 = Theme.Text,
     ImageTransparency = 0.5,
     BackgroundTransparency = 1,
