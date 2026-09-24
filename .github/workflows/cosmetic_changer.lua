@@ -146,6 +146,7 @@ local function renderModelToImage(model, size)
     size = size or 128
     if not model then return nil end
 
+    local okRun, result = pcall(function()
     local vp = create("ViewportFrame", {
         BackgroundColor3 = FromRGB(0, 0, 0),
         BackgroundTransparency = 1,
@@ -208,19 +209,23 @@ local function renderModelToImage(model, size)
     local camPos = cf.Position + Vector3.new(dist * 0.55, dist * 0.35, -dist * 0.75)
     local lookAt = cf.Position
 
-    vp.Camera = create("Camera", {
-        CFrame = CFrame.lookAt(camPos, lookAt),
-        FieldOfView = 45,
-        Parent = vp,
-    })
+    pcall(function()
+        local cam = InstanceNew("Camera")
+        cam.CFrame = CFrame.lookAt(camPos, lookAt)
+        cam.FieldOfView = 45
+        cam.Parent = vp
+        vp.CurrentCamera = cam
+    end)
 
     task.wait(0.15)
 
-    -- capture via ViewportFrame.CurrentCamera isn't directly to texture without CaptureScreenshot;
-    -- instead return the viewport itself for embedding, or try contentProvider preloaded decal
-    -- For ImageLabel we extract texture from mesh; for viewport we embed the frame directly.
-    local result = { Viewport = vp, Gui = vp.Parent }
-    return result
+    return { Viewport = vp, Gui = vp.Parent }
+    end)
+
+    if okRun then
+        return result
+    end
+    return nil
 end
 
 local function resolveIcon(obj)
@@ -479,8 +484,14 @@ local function fetchCosmetics(weapon)
 end
 
 -- ============================================================
--- window UI — matches reference image
+-- window UI — fixed header / body / footer (no overlap)
 -- ============================================================
+
+local HEADER_H = 30
+local FOOTER_H = 58
+local WEAPON_GRID_H = 170
+local COSMETIC_GRID_H = 150
+local CHIP_ROW_H = 26
 
 local holder = create("ScreenGui", {
     Parent = (gethui and gethui()) or game:GetService("CoreGui"),
@@ -495,15 +506,15 @@ local main = create("Frame", {
     Name = "\0",
     AnchorPoint = Vector2New(0.5, 0.5),
     Position = UDim2New(0.5, 0, 0.5, 0),
-    Size = UDim2New(0, 520, 0, 620),
+    Size = UDim2New(0, 540, 0, 660),
     BackgroundColor3 = Theme.Background,
     BorderColor3 = FromRGB(0, 0, 0),
     BorderSizePixel = 0,
+    ClipsDescendants = true,
 })
 corner(main, 6)
 stroke(main, Theme.Accent, 1.5)
 
--- outer glow
 create("ImageLabel", {
     Parent = main,
     Name = "\0",
@@ -519,9 +530,24 @@ create("ImageLabel", {
     ZIndex = -1,
 })
 
--- title
-create("TextLabel", {
+-- header (drag)
+local header = create("Frame", {
     Parent = main,
+    Name = "\0",
+    Size = UDim2New(1, 0, 0, HEADER_H),
+    BackgroundColor3 = Theme.Inline,
+    BorderSizePixel = 0,
+})
+create("UIStroke", {
+    Parent = header,
+    Name = "\0",
+    Color = Theme.Outline,
+    Thickness = 1,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+})
+
+create("TextLabel", {
+    Parent = header,
     Name = "\0",
     FontFace = Font,
     Text = "Cosmetic Changer",
@@ -529,38 +555,114 @@ create("TextLabel", {
     TextSize = 14,
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    Size = UDim2New(1, 0, 0, 28),
-    Position = UDim2New(0, 0, 0, 6),
+    Size = UDim2New(1, 0, 1, 0),
 })
 
--- content scroll
-local content = create("ScrollingFrame", {
+-- body: fixed stack, clipped, each grid scrolls internally
+local body = create("Frame", {
     Parent = main,
     Name = "\0",
-    Position = UDim2New(0, 10, 0, 34),
-    Size = UDim2New(1, -20, 1, -110),
+    Position = UDim2New(0, 8, 0, HEADER_H + 6),
+    Size = UDim2New(1, -16, 1, -(HEADER_H + FOOTER_H + 10)),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    ScrollBarThickness = 0,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2New(0, 0, 0, 0),
-    ClipsDescendants = false,
+    ClipsDescendants = true,
 })
 create("UIListLayout", {
-    Parent = content,
+    Parent = body,
     Name = "\0",
-    Padding = UDimNew(0, 10),
+    Padding = UDimNew(0, 8),
     SortOrder = Enum.SortOrder.LayoutOrder,
 })
 
--- section builder: label + filter box + grid
-local function buildSection(order, labelText, placeholder)
+-- footer: buttons + hint always visible, never under grid
+local footer = create("Frame", {
+    Parent = main,
+    Name = "\0",
+    AnchorPoint = Vector2New(0, 1),
+    Position = UDim2New(0, 8, 1, -6),
+    Size = UDim2New(1, -16, 0, FOOTER_H - 6),
+    BackgroundColor3 = Theme.Inline,
+    BorderSizePixel = 0,
+})
+corner(footer, 5)
+stroke(footer, Theme.Outline)
+
+create("TextLabel", {
+    Parent = footer,
+    Name = "\0",
+    FontFace = Font,
+    Text = "right click a weapon to toggle the skin changer for it",
+    TextColor3 = Theme["Dark Text"],
+    TextTransparency = 0.3,
+    TextSize = 11,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Position = UDim2New(0, 0, 1, -16),
+    Size = UDim2New(1, 0, 0, 14),
+})
+
+local buttonsRow = create("Frame", {
+    Parent = footer,
+    Name = "\0",
+    Position = UDim2New(0, 6, 0, 5),
+    Size = UDim2New(1, -12, 0, 26),
+    BackgroundTransparency = 1,
+})
+create("UIListLayout", {
+    Parent = buttonsRow,
+    Name = "\0",
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDimNew(0, 6),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+})
+
+local function makeButton(parent, text, order, callback)
+    local btn = create("TextButton", {
+        Parent = parent,
+        Name = "\0",
+        FontFace = Font,
+        Text = "",
+        AutoButtonColor = false,
+        BackgroundColor3 = Theme.Element,
+        BorderColor3 = FromRGB(0, 0, 0),
+        BorderSizePixel = 0,
+        LayoutOrder = order,
+        Size = UDim2New(0.33, -6, 1, 0),
+    })
+    corner(btn, 4)
+
+    local lbl = create("TextLabel", {
+        Parent = btn,
+        Name = "\0",
+        FontFace = Font,
+        Text = text,
+        TextColor3 = Theme["Dark Text"],
+        TextSize = 12,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size = UDim2New(1, 0, 1, 0),
+    })
+
+    btn.MouseEnter:Connect(function()
+        tween(lbl, nil, { TextColor3 = Theme.Text })
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(lbl, nil, { TextColor3 = Theme["Dark Text"] })
+    end)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- section: label + search + fixed-height scrolling grid
+-- gridTop: y offset for grid (weapon section uses larger top to fit chips)
+local function buildSection(order, labelText, placeholder, gridH, gridTop)
+    gridTop = gridTop or 50
     local section = create("Frame", {
-        Parent = content,
+        Parent = body,
         Name = "\0",
         LayoutOrder = order,
-        Size = UDim2New(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+        Size = UDim2New(1, 0, 0, gridTop + gridH + 8),
         BackgroundColor3 = Theme.Background,
         BorderColor3 = FromRGB(0, 0, 0),
         BorderSizePixel = 0,
@@ -613,11 +715,12 @@ local function buildSection(order, labelText, placeholder)
     local gridHolder = create("ScrollingFrame", {
         Parent = section,
         Name = "\0",
-        Position = UDim2New(0, 8, 0, 50),
-        Size = UDim2New(1, -16, 0, 168),
+        Position = UDim2New(0, 8, 0, gridTop),
+        Size = UDim2New(1, -16, 0, gridH),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ScrollBarThickness = 0,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Theme.Outline,
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         CanvasSize = UDim2New(0, 0, 0, 0),
         ClipsDescendants = true,
@@ -631,28 +734,106 @@ local function buildSection(order, labelText, placeholder)
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
     })
 
-    -- section bottom padding via automatic size on parent
-    create("UIPadding", {
-        Parent = section,
-        Name = "\0",
-        PaddingBottom = UDimNew(0, 8),
-    })
-
     return {
         Section = section,
         FilterInput = filterInput,
         GridHolder = gridHolder,
         Grid = grid,
         Cards = {},
+        GridTop = gridTop,
     }
 end
 
-local weaponSection = buildSection(1, "weapon filter", "search weapons...")
-local cosmeticSection = buildSection(2, "cosmetic filter", "search cosmetics...")
+-- weapon section reserves space under search for category chips
+local weaponSection = buildSection(1, "weapon filter", "search weapons...", WEAPON_GRID_H, 50 + CHIP_ROW_H + 4)
+local cosmeticSection = buildSection(2, "cosmetic filter", "search cosmetics...", COSMETIC_GRID_H, 50)
+
+local State = {
+    Weapons = {},
+    Cosmetics = {},
+    SelectedWeapon = nil,
+    SelectedCosmetic = nil,
+    WeaponFilter = "",
+    CosmeticFilter = "",
+    Category = "all",
+    EnabledWeapons = {},
+}
+
+-- category chips — sit between search and weapon grid
+local chipRow = create("Frame", {
+    Parent = weaponSection.Section,
+    Name = "\0",
+    Position = UDim2New(0, 8, 0, 48),
+    Size = UDim2New(1, -16, 0, 22),
+    BackgroundTransparency = 1,
+})
+create("UIListLayout", {
+    Parent = chipRow,
+    Name = "\0",
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDimNew(0, 4),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+})
+
+local chipButtons = {}
+local refreshWeaponGrid
+local refreshCosmeticGrid
+
+local CATEGORIES = {
+    { id = "all", label = "all" },
+    { id = "sword", label = "swords" },
+    { id = "explosion", label = "explosions" },
+    { id = "emote", label = "emotes" },
+    { id = "weapon", label = "other" },
+}
+
+local function refreshChipStyles()
+    for id, btn in chipButtons do
+        local on = State.Category == id
+        btn.BackgroundColor3 = on and Theme.Accent or Theme.Element
+        local lbl = btn:FindFirstChildOfClass("TextLabel")
+        if lbl then
+            lbl.TextColor3 = on and Theme.Background or Theme["Dark Text"]
+        end
+    end
+end
+
+for i, cat in CATEGORIES do
+    local chip = create("TextButton", {
+        Parent = chipRow,
+        Name = "\0",
+        FontFace = Font,
+        Text = "",
+        AutoButtonColor = false,
+        BackgroundColor3 = Theme.Element,
+        BorderColor3 = FromRGB(0, 0, 0),
+        BorderSizePixel = 0,
+        LayoutOrder = i,
+        Size = UDim2New(0, #cat.label * 7 + 16, 1, 0),
+    })
+    corner(chip, 4)
+    create("TextLabel", {
+        Parent = chip,
+        Name = "\0",
+        FontFace = Font,
+        Text = cat.label,
+        TextColor3 = Theme["Dark Text"],
+        TextSize = 11,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size = UDim2New(1, 0, 1, 0),
+    })
+    chipButtons[cat.id] = chip
+    chip.MouseButton1Click:Connect(function()
+        State.Category = cat.id
+        refreshChipStyles()
+        refreshWeaponGrid()
+    end)
+end
 
 -- skin dropdown row
 local skinRow = create("Frame", {
-    Parent = content,
+    Parent = body,
     Name = "\0",
     LayoutOrder = 3,
     Size = UDim2New(1, 0, 0, 44),
@@ -756,90 +937,9 @@ create("UIListLayout", {
     ZIndex = 501,
 })
 
--- buttons row
-local buttonsRow = create("Frame", {
-    Parent = main,
-    Name = "\0",
-    AnchorPoint = Vector2New(0, 1),
-    Position = UDim2New(0, 10, 1, -28),
-    Size = UDim2New(1, -20, 0, 22),
-    BackgroundTransparency = 1,
-})
-
-local function makeButton(parent, text, order, callback)
-    local btn = create("TextButton", {
-        Parent = parent,
-        Name = "\0",
-        FontFace = Font,
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundColor3 = Theme.Element,
-        BorderColor3 = FromRGB(0, 0, 0),
-        BorderSizePixel = 0,
-        LayoutOrder = order,
-        Size = UDim2New(0.33, -6, 1, 0),
-    })
-    corner(btn, 4)
-
-    local lbl = create("TextLabel", {
-        Parent = btn,
-        Name = "\0",
-        FontFace = Font,
-        Text = text,
-        TextColor3 = Theme["Dark Text"],
-        TextSize = 12,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Size = UDim2New(1, 0, 1, 0),
-    })
-
-    btn.MouseEnter:Connect(function()
-        tween(lbl, nil, { TextColor3 = Theme.Text })
-    end)
-    btn.MouseLeave:Connect(function()
-        tween(lbl, nil, { TextColor3 = Theme["Dark Text"] })
-    end)
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
-
-create("UIListLayout", {
-    Parent = buttonsRow,
-    Name = "\0",
-    FillDirection = Enum.FillDirection.Horizontal,
-    Padding = UDimNew(0, 6),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-})
-
--- hint
-create("TextLabel", {
-    Parent = main,
-    Name = "\0",
-    FontFace = Font,
-    Text = "right click a weapon to toggle the skin changer for it",
-    TextColor3 = Theme["Dark Text"],
-    TextTransparency = 0.3,
-    TextSize = 11,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    AnchorPoint = Vector2New(0, 1),
-    Position = UDim2New(0, 0, 1, -8),
-    Size = UDim2New(1, 0, 0, 14),
-})
-
 -- ============================================================
 -- state + card rendering
 -- ============================================================
-
-local State = {
-    Weapons = {},
-    Cosmetics = {},
-    SelectedWeapon = nil,
-    SelectedCosmetic = nil,
-    WeaponFilter = "",
-    CosmeticFilter = "",
-    EnabledWeapons = {},
-}
 
 local function destroyCards(section)
     for _, card in section.Cards do
@@ -913,9 +1013,8 @@ local function buildCard(parent, item, layoutOrder, isSelected, onLeft, onRight)
                 ZIndex = 4,
             })
         elseif item.Instance and (item.Instance:IsA("Model") or item.Instance:IsA("BasePart") or item.Instance:IsA("Folder")) and card.Parent then
-            -- embed viewport for 3D
-            local rendered = renderModelToImage(item.Instance, 56)
-            if rendered and rendered.Viewport and card.Parent then
+            local okRender, rendered = pcall(renderModelToImage, item.Instance, 56)
+            if okRender and rendered and rendered.Viewport and card.Parent then
                 rendered.Viewport.Name = "\0"
                 rendered.Viewport.Size = UDim2New(1, -4, 1, -4)
                 rendered.Viewport.AnchorPoint = Vector2New(0.5, 0.5)
@@ -976,12 +1075,14 @@ local function buildCard(parent, item, layoutOrder, isSelected, onLeft, onRight)
     return card
 end
 
-local function refreshWeaponGrid()
+refreshWeaponGrid = function()
     destroyCards(weaponSection)
     local filter = StringLower(State.WeaponFilter)
     local order = 0
     for _, weapon in State.Weapons do
-        if filter == "" or StringLower(weapon.Name):find(filter, 1, true) then
+        local catOk = State.Category == "all" or weapon.Category == State.Category
+        local textOk = filter == "" or StringLower(weapon.Name):find(filter, 1, true)
+        if catOk and textOk then
             order += 1
             local isSelected = State.SelectedWeapon and State.SelectedWeapon.Name == weapon.Name
             local card = buildCard(
@@ -1025,10 +1126,10 @@ local function refreshWeaponGrid()
             TableInsert(weaponSection.Cards, card)
         end
     end
-    weaponSection.GridHolder.Size = UDim2New(1, -16, 0, math.max(168, math.ceil(order / 6) * 92 + 8))
+    weaponSection.GridHolder.Size = UDim2New(1, -16, 0, WEAPON_GRID_H)
 end
 
-function refreshCosmeticGrid()
+refreshCosmeticGrid = function()
     destroyCards(cosmeticSection)
     local filter = StringLower(State.CosmeticFilter)
     local order = 0
@@ -1052,7 +1153,7 @@ function refreshCosmeticGrid()
             TableInsert(cosmeticSection.Cards, card)
         end
     end
-    cosmeticSection.GridHolder.Size = UDim2New(1, -16, 0, math.max(168, math.ceil(order / 6) * 92 + 8))
+    cosmeticSection.GridHolder.Size = UDim2New(1, -16, 0, COSMETIC_GRID_H)
 end
 
 -- ============================================================
@@ -1261,17 +1362,15 @@ end)
 do
     local dragging, dragStart, startPos
     local titleHit = create("TextButton", {
-        Parent = main,
+        Parent = header,
         Name = "\0",
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2New(0, 0, 0, 0),
-        Size = UDim2New(1, 0, 0, 28),
+        Size = UDim2New(1, 0, 1, 0),
         ZIndex = 10,
     })
-    -- send clicks through except drag
     titleHit.Active = true
 
     titleHit.InputBegan:Connect(function(input)
@@ -1289,11 +1388,10 @@ do
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            local pos = UDim2New(
+            main.Position = UDim2New(
                 startPos.X.Scale, startPos.X.Offset + delta.X,
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y
             )
-            main.Position = pos
         end
     end)
 end
@@ -1323,6 +1421,7 @@ function CosmeticChanger:Refresh()
 end
 
 getgenv().CosmeticChanger = CosmeticChanger
+refreshChipStyles()
 
 -- initial load
 task.spawn(function()
